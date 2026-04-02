@@ -19,9 +19,9 @@ class PlayCheckCommand : CliktCommand(name = "playcheck") {
 
     override fun run() {
         if (!config.json) config.terminal.print("Play uyumlulugu kontrol ediliyor...")
-        val result = PlayCompatChecker().check(file)
+        val result = PlayCompatChecker().check(file, config.messages)
         if (!config.json) config.terminal.print("\r\u001B[K")
-        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal)
+        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal, config.messages)
         renderer.renderPlayCompat(result)
     }
 }

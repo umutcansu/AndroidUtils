@@ -21,7 +21,7 @@ class DiffCommand : CliktCommand(name = "diff") {
     private val config by requireObject<AppConfig>()
 
     override fun run() {
-        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal)
+        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal, config.messages)
         val result = PermissionDiff().compare(oldFile, newFile)
         renderer.renderPermissionDiff(result)
     }

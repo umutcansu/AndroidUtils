@@ -4,6 +4,7 @@ import com.android.tools.build.bundletool.commands.BuildApksCommand
 import com.android.tools.build.bundletool.commands.BuildApksCommand.ApkBuildMode
 import com.android.tools.build.bundletool.model.Password
 import com.android.tools.build.bundletool.model.SigningConfiguration
+import com.androidutil.i18n.Messages
 import com.androidutil.sdk.AndroidSdkLocator
 import com.github.ajalt.mordant.rendering.TextColors
 import com.github.ajalt.mordant.terminal.Terminal
@@ -26,7 +27,7 @@ data class ConversionConfig(
     val universal: Boolean
 )
 
-class AabConverter(private val terminal: Terminal) {
+class AabConverter(private val terminal: Terminal, private val msg: Messages) {
 
     fun convert(config: ConversionConfig) {
         val outputPath = config.outputPath
@@ -39,7 +40,7 @@ class AabConverter(private val terminal: Terminal) {
             outputPath.deleteIfExists()
         }
 
-        terminal.println("${config.aabPath.name} donusturuluyor...")
+        terminal.println(msg.get("converter.converting", config.aabPath.name))
 
         try {
             val builder = BuildApksCommand.builder()
@@ -89,18 +90,18 @@ class AabConverter(private val terminal: Terminal) {
                 System.setOut(originalOut)
             }
 
-            terminal.println(TextColors.green("Basariyla donusturuldu: ${outputPath.absolutePathString()}"))
+            terminal.println(TextColors.green(msg.get("converter.success", outputPath.absolutePathString())))
 
             if (config.universal) {
-                terminal.println("Universal APK olusturuldu.")
+                terminal.println(msg["converter.universalCreated"])
             } else {
-                terminal.println("APK seti olusturuldu (.apks).")
-                terminal.println(TextColors.gray("Cihaza kurmak icin: adb → install secenegini kullanabilirsin."))
+                terminal.println(msg["converter.apksCreated"])
+                terminal.println(TextColors.gray(msg["converter.apksInstallHint"]))
             }
         } catch (e: Exception) {
-            terminal.println(TextColors.red("Donusum hatasi: ${e.message}"))
+            terminal.println(TextColors.red(msg.get("converter.error", e.message ?: "")))
             if (e.cause != null) {
-                terminal.println(TextColors.gray("Detay: ${e.cause?.message}"))
+                terminal.println(TextColors.gray(msg.get("converter.errorDetail", e.cause?.message ?: "")))
             }
         }
     }

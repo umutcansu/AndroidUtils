@@ -14,6 +14,7 @@ import com.androidutil.core.resources.ResourceLister
 import com.androidutil.core.signing.KeystoreInspector
 import com.androidutil.core.signing.SignatureVerifier
 import com.androidutil.core.stacktrace.StackTraceDecoder
+import com.androidutil.i18n.Messages
 import com.androidutil.output.HtmlReportGenerator
 import com.androidutil.output.JsonRenderer
 import com.androidutil.output.OutputRenderer
@@ -29,15 +30,15 @@ import com.github.ajalt.mordant.terminal.Terminal
 import java.nio.file.Path
 import kotlin.io.path.*
 
-private const val BACK_KEY = "← Geri don"
-
 class InteractiveMode(private val config: AppConfig) {
 
     private val terminal = config.terminal
+    private val msg = config.messages
+    private val backKey = msg["common.back"]
     private val renderer: OutputRenderer = if (config.json) {
         JsonRenderer(terminal)
     } else {
-        TerminalRenderer(terminal)
+        TerminalRenderer(terminal, msg)
     }
 
     private var currentFile: Path? = null
@@ -52,7 +53,7 @@ class InteractiveMode(private val config: AppConfig) {
 
         while (true) {
             if (currentFile == null) {
-                terminal.println(bold("Bir AAB veya APK dosyasi sec:"))
+                terminal.println(bold(msg["interactive.selectFile"]))
                 terminal.println()
                 val file = selectFile(listOf("aab", "apk"))
                 if (file == null) {
@@ -74,7 +75,7 @@ class InteractiveMode(private val config: AppConfig) {
             terminal.println()
         }
 
-        terminal.println(green("Gorusuruz!"))
+        terminal.println(green(msg["common.goodbye"]))
     }
 
     // ─────────────────────────────────────────────────────────
@@ -86,38 +87,38 @@ class InteractiveMode(private val config: AppConfig) {
         val ext = file.extension.lowercase()
         val size = try { FileSize.format(file.fileSize()) } catch (_: Exception) { "?" }
 
-        terminal.println(bold(green("Dosya: ${file.name} ($size)")))
+        terminal.println(bold(green(msg.get("interactive.fileLoaded", file.name, size))))
         terminal.println(gray("  ${file.parent}"))
         terminal.println()
 
         val entries = mutableListOf<String>()
 
         // File-specific operations
-        entries.add("analyze   - AAB/APK analiz (16KB, manifest, sertifika, boyut)")
-        entries.add("deeplink  - Deeplink listele ve test et")
-        entries.add("verify    - Imza dogrulama (sertifika bilgileri)")
-        entries.add("nativelib - Native library (.so) inspector")
-        entries.add("resources - Resource ve asset listesi")
-        entries.add("playcheck - Google Play uyumluluk kontrolu")
+        entries.add(msg["menu.analyze"])
+        entries.add(msg["menu.deeplink"])
+        entries.add(msg["menu.verify"])
+        entries.add(msg["menu.nativelib"])
+        entries.add(msg["menu.resources"])
+        entries.add(msg["menu.playcheck"])
 
         if (ext == "aab") {
-            entries.add("convert   - AAB → APK donustur")
+            entries.add(msg["menu.convert"])
         }
 
-        entries.add("─── Karsilastirma ──────────────────────────────────────")
-        entries.add("mdiff     - Manifest karsilastirma (tum alanlar)")
-        entries.add("sizediff  - Boyut karsilastirma (detayli)")
+        entries.add(msg["menu.comparison"])
+        entries.add(msg["menu.mdiff"])
+        entries.add(msg["menu.sizediff"])
 
-        entries.add("─── Diger Araclar ──────────────────────────────────────")
-        entries.add("download  - Play Store'dan APK indir (apkeep)")
-        entries.add("decode    - Obfuscated stack trace coz (mapping.txt)")
-        entries.add("keystore  - Keystore bilgileri")
-        entries.add("adb       - ADB (install, launch, logcat, screenshot...)")
-        entries.add("report    - HTML rapor olustur")
+        entries.add(msg["menu.otherTools"])
+        entries.add(msg["menu.download"])
+        entries.add(msg["menu.decode"])
+        entries.add(msg["menu.keystore"])
+        entries.add(msg["menu.adb"])
+        entries.add(msg["menu.report"])
 
-        entries.add("────────────────────────────────────────────────────────")
-        entries.add("change    - Dosya degistir")
-        entries.add("quit      - Cikis")
+        entries.add(msg["menu.separator"])
+        entries.add(msg["menu.change"])
+        entries.add(msg["menu.quit"])
 
         val selected = terminal.interactiveSelectList {
             entries.forEach { addEntry(it) }
@@ -130,16 +131,16 @@ class InteractiveMode(private val config: AppConfig) {
 
     private fun selectToolsOrQuit(): String? {
         terminal.println()
-        terminal.println(bold("Dosya secilmedi. Baska bir arac kullanabilirsin:"))
+        terminal.println(bold(msg["interactive.noFileSelected"]))
         terminal.println()
 
         val selected = terminal.interactiveSelectList {
-            addEntry("download - Play Store'dan APK indir (apkeep)")
-            addEntry("decode   - Obfuscated stack trace coz (mapping.txt)")
-            addEntry("keystore - Keystore bilgileri")
-            addEntry("adb      - ADB kisayollari")
-            addEntry("file     - Dosya sec (tekrar dene)")
-            addEntry("quit     - Cikis")
+            addEntry(msg["menu.tools.download"])
+            addEntry(msg["menu.tools.decode"])
+            addEntry(msg["menu.tools.keystore"])
+            addEntry(msg["menu.tools.adb"])
+            addEntry(msg["menu.tools.file"])
+            addEntry(msg["menu.tools.quit"])
         } ?: return null
 
         return selected.substringBefore(" ").trim()
@@ -187,7 +188,7 @@ class InteractiveMode(private val config: AppConfig) {
     private fun handleAnalyze() {
         val file = currentFile ?: return
         terminal.println()
-        terminal.println("${file.name} analiz ediliyor...")
+        terminal.println(msg.get("interactive.analyzing", file.name))
         terminal.println()
         try {
             when (file.extension.lowercase()) {
@@ -195,7 +196,7 @@ class InteractiveMode(private val config: AppConfig) {
                 "apk" -> renderer.renderApkAnalysis(ApkAnalyzer().analyze(file))
             }
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
             if (config.verbose) e.printStackTrace()
         }
     }
@@ -203,13 +204,13 @@ class InteractiveMode(private val config: AppConfig) {
     private fun handleConvert() {
         val file = currentFile ?: return
         terminal.println()
-        terminal.println(bold("Donusum modu:"))
+        terminal.println(bold(msg["interactive.conversionMode"]))
         terminal.println()
 
         val mode = terminal.interactiveSelectList {
-            addEntry("universal - Tek APK (tum cihazlar icin)")
-            addEntry("default   - Cihaza ozel APK seti (.apks)")
-            addEntry(BACK_KEY)
+            addEntry(msg["interactive.conversionUniversal"])
+            addEntry(msg["interactive.conversionDefault"])
+            addEntry(backKey)
         }?.substringBefore(" ")?.trim() ?: return
         if (mode == "←") return
 
@@ -217,9 +218,9 @@ class InteractiveMode(private val config: AppConfig) {
         val defaultOutput = file.resolveSibling(file.name.replace(".aab", if (universal) ".apk" else ".apks"))
 
         terminal.println()
-        terminal.println("Cikti dosyasi: ${green(defaultOutput.absolutePathString())}")
-        terminal.println(gray("Farkli bir yol girmek icin yaz, ayni yol icin bos birak:"))
-        val customPath = StringPrompt("Cikti yolu", terminal).ask()
+        terminal.println(msg.get("interactive.outputFile", green(defaultOutput.absolutePathString())))
+        terminal.println(gray(msg["interactive.outputPathHint"]))
+        val customPath = StringPrompt(msg["interactive.outputPathPrompt"], terminal).ask()
         val outputPath = if (customPath.isNullOrBlank()) defaultOutput else Path(customPath.trim())
 
         terminal.println()
@@ -230,9 +231,9 @@ class InteractiveMode(private val config: AppConfig) {
                 keyAlias = null, keyPassword = null,
                 deviceSpecPath = null, universal = universal
             )
-            com.androidutil.core.converter.AabConverter(terminal).convert(conversionConfig)
+            com.androidutil.core.converter.AabConverter(terminal, msg).convert(conversionConfig)
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
             if (config.verbose) e.printStackTrace()
         }
     }
@@ -245,7 +246,7 @@ class InteractiveMode(private val config: AppConfig) {
         try {
             renderer.renderSignatureVerification(SignatureVerifier().verify(file))
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
         }
     }
 
@@ -258,19 +259,19 @@ class InteractiveMode(private val config: AppConfig) {
             val result = DeeplinkAnalyzer().analyze(file)
             renderer.renderDeeplinkAnalysis(result)
             if (result.deeplinks.isNotEmpty()) {
-                terminal.println(bold("Bir deeplink'i ADB ile test etmek ister misin?"))
+                terminal.println(bold(msg["interactive.adbTestPrompt"]))
                 terminal.println()
-                val options = result.deeplinks.map { it.fullUrl } + listOf(BACK_KEY)
+                val options = result.deeplinks.map { it.fullUrl } + listOf(backKey)
                 val selected = terminal.interactiveSelectList {
                     options.forEach { addEntry(it) }
                 } ?: return
-                if (selected != BACK_KEY) {
-                    try { AdbService(terminal).testDeeplink(selected) }
-                    catch (e: Exception) { terminal.println(red("ADB hatasi: ${e.message}")) }
+                if (selected != backKey) {
+                    try { AdbService(terminal, msg).testDeeplink(selected) }
+                    catch (e: Exception) { terminal.println(red(msg.get("interactive.adbError", e.message ?: ""))) }
                 }
             }
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
         }
     }
 
@@ -283,7 +284,7 @@ class InteractiveMode(private val config: AppConfig) {
             val result = NativeLibInspector().inspect(file)
             renderer.renderNativeLibReport(result)
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
         }
     }
 
@@ -296,7 +297,7 @@ class InteractiveMode(private val config: AppConfig) {
             val result = ResourceLister().list(file)
             renderer.renderResourceReport(result)
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
         }
     }
 
@@ -306,18 +307,18 @@ class InteractiveMode(private val config: AppConfig) {
         terminal.println("Checking Google Play compatibility for ${file.name}...")
         terminal.println()
         try {
-            val result = PlayCompatChecker().check(file)
+            val result = PlayCompatChecker().check(file, msg)
             renderer.renderPlayCompat(result)
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
         }
     }
 
     private fun handleManifestDiff() {
         val file = currentFile ?: return
         terminal.println()
-        terminal.println(green("Eski dosya: ${file.name}"))
-        terminal.println(bold("Yeni dosya sec:"))
+        terminal.println(green(msg.get("interactive.oldFile", file.name)))
+        terminal.println(bold(msg["interactive.selectNewFile"]))
         val newFile = selectFile(listOf("aab", "apk")) ?: return
         terminal.println()
         terminal.println("Comparing manifests...")
@@ -326,15 +327,15 @@ class InteractiveMode(private val config: AppConfig) {
             val result = ManifestDiff().compare(file, newFile)
             renderer.renderManifestDiff(result)
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
         }
     }
 
     private fun handleSizeDiff() {
         val file = currentFile ?: return
         terminal.println()
-        terminal.println(green("Eski dosya: ${file.name}"))
-        terminal.println(bold("Yeni dosya sec:"))
+        terminal.println(green(msg.get("interactive.oldFile", file.name)))
+        terminal.println(bold(msg["interactive.selectNewFile"]))
         val newFile = selectFile(listOf("aab", "apk")) ?: return
         terminal.println()
         terminal.println("Comparing sizes...")
@@ -343,18 +344,18 @@ class InteractiveMode(private val config: AppConfig) {
             val result = SizeDiff().compare(file, newFile)
             renderer.renderSizeDiff(result)
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
         }
     }
 
     private fun handleDownload() {
         terminal.println()
-        val downloader = PlayStoreDownloader(terminal)
+        val downloader = PlayStoreDownloader(terminal, msg)
 
         val source = terminal.interactiveSelectList {
-            addEntry("apkpure  - APKPure'dan indir (auth gerektirmez)")
-            addEntry("url      - Direkt URL'den indir")
-            addEntry(BACK_KEY)
+            addEntry(msg["download.apkpure"])
+            addEntry(msg["download.url"])
+            addEntry(backKey)
         }?.substringBefore(" ")?.trim() ?: return
 
         if (source == "←") return
@@ -362,16 +363,16 @@ class InteractiveMode(private val config: AppConfig) {
         when (source) {
             "apkpure" -> {
                 if (!downloader.isApkeepAvailable()) {
-                    terminal.println(red("apkeep bulunamadi!"))
+                    terminal.println(red(msg["downloader.apkeepNotFound"]))
                     terminal.println()
-                    terminal.println(bold("Kurulum:"))
+                    terminal.println(bold(msg["download.installHint"]))
                     terminal.println(cyan("  cargo install apkeep"))
                     terminal.println(cyan("  brew install apkeep"))
                     terminal.println(cyan("  https://github.com/EFForg/apkeep/releases"))
                     return
                 }
                 terminal.println()
-                val pkg = StringPrompt("Package name (ornegin: com.whatsapp)", terminal).ask()
+                val pkg = StringPrompt(msg["download.packagePrompt"], terminal).ask()
                 if (pkg.isNullOrBlank()) return
 
                 val outputDir = Path(System.getProperty("user.dir"))
@@ -379,15 +380,15 @@ class InteractiveMode(private val config: AppConfig) {
 
                 if (file != null && (file.name.endsWith(".apk") || file.name.endsWith(".xapk"))) {
                     terminal.println()
-                    terminal.println(bold("Indirilen dosyayi analiz icin yuklemek ister misin?"))
+                    terminal.println(bold(msg["interactive.loadDownloadedPrompt"]))
                     val choice = terminal.interactiveSelectList {
-                        addEntry("Evet - yukle ve analiz et")
+                        addEntry(msg["interactive.loadDownloadedYes"])
                         addEntry("Hayir")
                     } ?: return
-                    if (choice.startsWith("Evet")) {
+                    if (choice == msg["interactive.loadDownloadedYes"]) {
                         currentFile = file
                         RecentFiles.add(file)
-                        terminal.println(green("Dosya yuklendi: ${file.name}"))
+                        terminal.println(green(msg.get("interactive.fileLoadedStatus", file.name)))
                     }
                 }
             }
@@ -401,15 +402,15 @@ class InteractiveMode(private val config: AppConfig) {
 
                 if (file != null && file.name.endsWith(".apk")) {
                     terminal.println()
-                    terminal.println(bold("Indirilen dosyayi analiz icin yuklemek ister misin?"))
+                    terminal.println(bold(msg["interactive.loadDownloadedPrompt"]))
                     val choice = terminal.interactiveSelectList {
-                        addEntry("Evet - yukle ve analiz et")
+                        addEntry(msg["interactive.loadDownloadedYes"])
                         addEntry("Hayir")
                     } ?: return
-                    if (choice.startsWith("Evet")) {
+                    if (choice == msg["interactive.loadDownloadedYes"]) {
                         currentFile = file
                         RecentFiles.add(file)
-                        terminal.println(green("Dosya yuklendi: ${file.name}"))
+                        terminal.println(green(msg.get("interactive.fileLoadedStatus", file.name)))
                     }
                 }
             }
@@ -423,9 +424,9 @@ class InteractiveMode(private val config: AppConfig) {
         terminal.println()
 
         val defaultOutput = file.resolveSibling(file.nameWithoutExtension + "_report.html")
-        terminal.println("Rapor dosyasi: ${green(defaultOutput.absolutePathString())}")
-        terminal.println(gray("Farkli bir yol icin yaz, ayni yol icin bos birak:"))
-        val customPath = StringPrompt("Rapor yolu", terminal).ask()
+        terminal.println(msg.get("interactive.reportFile", green(defaultOutput.absolutePathString())))
+        terminal.println(gray(msg["interactive.reportPathHint"]))
+        val customPath = StringPrompt(msg["interactive.reportPathPrompt"], terminal).ask()
         val outputPath = if (customPath.isNullOrBlank()) defaultOutput else Path(customPath.trim())
 
         try {
@@ -433,10 +434,10 @@ class InteractiveMode(private val config: AppConfig) {
             val apkResult = if (ext == "apk") ApkAnalyzer().analyze(file) else null
             val aabResult = if (ext == "aab") AabAnalyzer().analyze(file) else null
             val nativeLibReport = try { NativeLibInspector().inspect(file) } catch (_: Exception) { null }
-            val playCompat = try { PlayCompatChecker().check(file) } catch (_: Exception) { null }
+            val playCompat = try { PlayCompatChecker().check(file, msg) } catch (_: Exception) { null }
             val resourceReport = try { ResourceLister().list(file) } catch (_: Exception) { null }
 
-            HtmlReportGenerator().generateReport(
+            HtmlReportGenerator(msg).generateReport(
                 filePath = file.absolutePathString(),
                 apkResult = apkResult,
                 aabResult = aabResult,
@@ -445,17 +446,17 @@ class InteractiveMode(private val config: AppConfig) {
                 resourceReport = resourceReport,
                 outputPath = outputPath
             )
-            terminal.println(green("Rapor olusturuldu: ${outputPath.absolutePathString()}"))
+            terminal.println(green(msg.get("interactive.reportCreated", outputPath.absolutePathString())))
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
             if (config.verbose) e.printStackTrace()
         }
     }
 
     private fun handleDecode() {
-        terminal.println(bold("Stack trace dosyasi:"))
+        terminal.println(bold(msg["interactive.stackTraceFile"]))
         val stackFile = selectFile(listOf("txt", "log", "stacktrace")) ?: return
-        terminal.println(bold("Mapping dosyasi (mapping.txt):"))
+        terminal.println(bold(msg["interactive.mappingFile"]))
         val mappingFile = selectFile(listOf("txt", "map")) ?: return
         terminal.println()
         terminal.println("Decoding stack trace...")
@@ -465,14 +466,14 @@ class InteractiveMode(private val config: AppConfig) {
             val result = StackTraceDecoder().decode(stackTrace, mappingFile)
             renderer.renderDecodedStackTrace(result)
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
         }
     }
 
     private fun handleKeystore() {
         val file = selectFile(listOf("jks", "keystore", "p12", "pfx")) ?: return
         terminal.println()
-        val password = StringPrompt("Keystore password (bos birakilabilir)", terminal).ask()
+        val password = StringPrompt(msg["interactive.keystorePassword"], terminal).ask()
         terminal.println()
         terminal.println("Reading keystore ${file.name}...")
         terminal.println()
@@ -481,62 +482,62 @@ class InteractiveMode(private val config: AppConfig) {
             renderer.renderKeystoreInfo(result)
             RecentFiles.add(file)
         } catch (e: Exception) {
-            terminal.println(red("Hata: ${e.message}"))
+            terminal.println(red(msg.get("common.error", e.message ?: "")))
         }
     }
 
     private fun handleAdb() {
         terminal.println()
         val action = terminal.interactiveSelectList {
-            addEntry("pull       - Cihazdan APK cek (yuklu uygulamayi indir)")
-            addEntry("packages   - Yuklu uygulamalari listele")
-            addEntry("install    - APK kur")
-            addEntry("launch     - APK kur ve baslat")
-            addEntry("start      - Yuklu uygulamayi baslat")
-            addEntry("logcat     - Paket filtreli logcat")
-            addEntry("deeplink   - Deeplink test et")
-            addEntry("screenshot - Ekran goruntusu al")
-            addEntry("clear      - Uygulama verisini temizle")
-            addEntry("uninstall  - Uygulamayi kaldir")
-            addEntry("mirror     - Ekrani bilgisayara yansit (scrcpy)")
-            addEntry("devices    - Bagli cihazlari listele")
-            addEntry(BACK_KEY)
+            addEntry(msg["adb.menu.pull"])
+            addEntry(msg["adb.menu.packages"])
+            addEntry(msg["adb.menu.install"])
+            addEntry(msg["adb.menu.launch"])
+            addEntry(msg["adb.menu.start"])
+            addEntry(msg["adb.menu.logcat"])
+            addEntry(msg["adb.menu.deeplink"])
+            addEntry(msg["adb.menu.screenshot"])
+            addEntry(msg["adb.menu.clear"])
+            addEntry(msg["adb.menu.uninstall"])
+            addEntry(msg["adb.menu.mirror"])
+            addEntry(msg["adb.menu.devices"])
+            addEntry(backKey)
         }?.substringBefore(" ")?.trim() ?: return
 
         if (action == "←") return
 
         val adb = try {
-            AdbService(terminal)
+            AdbService(terminal, msg)
         } catch (e: Exception) {
-            terminal.println(red("ADB bulunamadi: ${e.message}"))
+            terminal.println(red(msg.get("adb.notFound", e.message ?: "")))
             return
         }
 
         when (action) {
             "pull" -> {
                 terminal.println()
-                terminal.println(bold("Paket adini yaz veya listeden sec:"))
+                terminal.println(bold(msg["adb.pullPrompt"]))
                 val choiceAction = terminal.interactiveSelectList {
-                    addEntry("search   - Paket ara (filtre ile)")
-                    addEntry("manual   - Paket adini yaz")
-                    addEntry(BACK_KEY)
+                    addEntry(msg["adb.pullSearch"])
+                    addEntry(msg["adb.pullManual"])
+                    addEntry(backKey)
                 }?.substringBefore(" ")?.trim() ?: return
 
                 val pkg = when (choiceAction) {
                     "search" -> {
                         terminal.println()
-                        val filter = StringPrompt("Filtre (bos = tumu)", terminal).ask() ?: ""
+                        val filter = StringPrompt(msg["adb.filterPrompt"], terminal).ask() ?: ""
                         val packages = adb.listPackages(filter.ifBlank { null })
                         if (packages.isEmpty()) {
-                            terminal.println(yellow("Uygulama bulunamadi."))
+                            terminal.println(yellow(msg["adb.noAppsFound"]))
                             return
                         }
                         terminal.println()
                         val selected = terminal.interactiveSelectList {
                             packages.forEach { addEntry(it) }
-                            addEntry(BACK_KEY)
+                            addEntry(backKey)
                         } ?: return
-                        if (selected == BACK_KEY) return
+                        if (selected == backKey) return
                         selected
                     }
                     "manual" -> {
@@ -552,26 +553,26 @@ class InteractiveMode(private val config: AppConfig) {
                 // Offer to load the pulled APK as current file
                 if (pulledFile != null && pulledFile.name.endsWith(".apk")) {
                     terminal.println()
-                    terminal.println(bold("Indirilen APK'yi analiz icin yuklemek ister misin?"))
+                    terminal.println(bold(msg["interactive.pullLoadPrompt"]))
                     val loadChoice = terminal.interactiveSelectList {
-                        addEntry("Evet - indirilen APK'yi yukle")
-                        addEntry("Hayir - mevcut dosyayla devam et")
+                        addEntry(msg["interactive.pullLoadYes"])
+                        addEntry(msg["interactive.pullLoadNo"])
                     } ?: return
-                    if (loadChoice.startsWith("Evet")) {
+                    if (loadChoice == msg["interactive.pullLoadYes"]) {
                         currentFile = pulledFile
                         RecentFiles.add(pulledFile)
-                        terminal.println(green("Dosya yuklendi: ${pulledFile.name}"))
+                        terminal.println(green(msg.get("interactive.fileLoadedStatus", pulledFile.name)))
                     }
                 }
             }
             "packages" -> {
                 terminal.println()
-                val filter = StringPrompt("Filtre (bos = tumu)", terminal).ask() ?: ""
+                val filter = StringPrompt(msg["adb.filterPrompt"], terminal).ask() ?: ""
                 val packages = adb.listPackages(filter.ifBlank { null })
                 if (packages.isEmpty()) {
-                    terminal.println(yellow("Uygulama bulunamadi."))
+                    terminal.println(yellow(msg["adb.noAppsFound"]))
                 } else {
-                    terminal.println(bold("Yuklu uygulamalar (${packages.size}):"))
+                    terminal.println(bold(msg.get("adb.installedApps", packages.size)))
                     packages.forEach { terminal.println("  $it") }
                 }
             }
@@ -620,9 +621,9 @@ class InteractiveMode(private val config: AppConfig) {
             "devices" -> {
                 val devices = adb.listDevices()
                 if (devices.isEmpty()) {
-                    terminal.println(yellow("Bagli cihaz bulunamadi."))
+                    terminal.println(yellow(msg["adb.noDevices"]))
                 } else {
-                    terminal.println(bold("Bagli cihazlar:"))
+                    terminal.println(bold(msg["adb.connectedDevices"]))
                     devices.forEach { dev ->
                         terminal.println("  ${dev.model.ifEmpty { dev.serial }} - ${dev.status} (${dev.serial})")
                     }
@@ -633,15 +634,16 @@ class InteractiveMode(private val config: AppConfig) {
 
     private fun resolveApkFile(): Path? {
         if (currentFile?.extension?.lowercase() == "apk") {
-            terminal.println(bold("Hangi APK?"))
+            terminal.println(bold(msg["interactive.whichApk"]))
+            val selectOtherLabel = msg["interactive.selectOther"]
             val choice = terminal.interactiveSelectList {
-                addEntry("${currentFile!!.name} - yuklu dosyayi kullan")
-                addEntry("Baska APK sec")
-                addEntry(BACK_KEY)
+                addEntry(msg.get("interactive.useLoaded", currentFile!!.name))
+                addEntry(selectOtherLabel)
+                addEntry(backKey)
             } ?: return null
             return when {
-                choice == BACK_KEY -> null
-                choice.startsWith("Baska") -> selectFile(listOf("apk"))
+                choice == backKey -> null
+                choice == selectOtherLabel -> selectFile(listOf("apk"))
                 else -> currentFile
             }
         }
@@ -666,14 +668,14 @@ class InteractiveMode(private val config: AppConfig) {
             menuPaths.add(file)
         }
 
-        menuLabels.add("Dosya sec (File Picker) - sistem dosya secici dialogu")
+        menuLabels.add(msg["interactive.filePicker"])
         menuPaths.add(null)
-        menuLabels.add("Yol yapistir / Drag & Drop - elle yol gir veya surukle birak")
+        menuLabels.add(msg["interactive.manualPath"])
         menuPaths.add(null)
-        menuLabels.add(BACK_KEY)
+        menuLabels.add(backKey)
         menuPaths.add(null)
 
-        terminal.println(bold("Dosya sec:"))
+        terminal.println(bold(msg["interactive.selectFileTitle"]))
         terminal.println()
 
         val filePickerIdx = menuLabels.size - 3
@@ -689,23 +691,23 @@ class InteractiveMode(private val config: AppConfig) {
         return when (selectedIdx) {
             backIdx -> null
             filePickerIdx -> {
-                terminal.println("Dosya secici aciliyor...")
+                terminal.println(msg["interactive.openingPicker"])
                 val file = FileChooser.selectFile(
                     title = "Select ${extensions.joinToString("/").uppercase()} File",
                     extensions = extensions
                 )
                 if (file == null) {
-                    terminal.println(yellow("Dosya secilmedi. Yolu elle girebilirsin:"))
+                    terminal.println(yellow(msg["interactive.noFileManualHint"]))
                     promptForPath()
                 } else {
-                    terminal.println(green("Secilen: ${file.name}"))
+                    terminal.println(green(msg.get("interactive.selected", file.name)))
                     file
                 }
             }
             manualPathIdx -> promptForPath()
             else -> {
                 val path = menuPaths[selectedIdx]
-                if (path != null) terminal.println(green("Secilen: ${path.name}"))
+                if (path != null) terminal.println(green(msg.get("interactive.selected", path.name)))
                 path
             }
         }
@@ -713,11 +715,11 @@ class InteractiveMode(private val config: AppConfig) {
 
     private fun promptForPath(): Path? {
         terminal.println()
-        terminal.println("Dosya yolunu yapistir veya terminale surukle birak:")
-        terminal.println(gray("  Iptal icin bos birak ve Enter'a bas"))
+        terminal.println(msg["interactive.pastePathHint"])
+        terminal.println(gray("  ${msg["interactive.pastePathCancel"]}"))
         terminal.println()
 
-        val input = StringPrompt("Dosya yolu", terminal).ask()
+        val input = StringPrompt(msg["interactive.pathPrompt"], terminal).ask()
         if (input.isNullOrBlank()) return null
 
         val cleaned = input.trim()
@@ -728,15 +730,15 @@ class InteractiveMode(private val config: AppConfig) {
         val path = Path(cleaned)
 
         if (!path.exists()) {
-            terminal.println(red("Dosya bulunamadi: $path"))
+            terminal.println(red(msg.get("interactive.fileNotFound", path.toString())))
             return null
         }
         if (!path.isRegularFile()) {
-            terminal.println(red("Bu bir dosya degil: $path"))
+            terminal.println(red(msg.get("interactive.notAFile", path.toString())))
             return null
         }
 
-        terminal.println(green("Secilen: ${path.name}"))
+        terminal.println(green(msg.get("interactive.selected", path.name)))
         return path
     }
 }

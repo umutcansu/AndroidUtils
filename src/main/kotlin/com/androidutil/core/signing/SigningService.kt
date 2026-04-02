@@ -1,5 +1,6 @@
 package com.androidutil.core.signing
 
+import com.androidutil.i18n.Messages
 import com.androidutil.sdk.AndroidSdkLocator
 import com.androidutil.util.ProcessRunner
 import com.github.ajalt.mordant.rendering.TextColors
@@ -7,7 +8,7 @@ import com.github.ajalt.mordant.terminal.Terminal
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
 
-class SigningService(private val terminal: Terminal) {
+class SigningService(private val terminal: Terminal, private val msg: Messages) {
 
     fun signApk(
         apkPath: Path,
@@ -19,10 +20,10 @@ class SigningService(private val terminal: Terminal) {
         val tools = AndroidSdkLocator.locate()
         val apksigner = tools.apksignerPath
             ?: throw IllegalStateException(
-                "apksigner bulunamadi. ANDROID_HOME ayarlayin veya Android SDK Build Tools kurun."
+                msg["signing.notFound"]
             )
 
-        terminal.println("${apkPath.fileName} imzalaniyor...")
+        terminal.println(msg.get("signing.signing", apkPath.fileName))
 
         val command = listOf(
             apksigner.toString(), "sign",
@@ -36,11 +37,11 @@ class SigningService(private val terminal: Terminal) {
         val result = ProcessRunner.run(command)
 
         if (result.exitCode != 0) {
-            terminal.println(TextColors.red("Imzalama basarisiz!"))
+            terminal.println(TextColors.red(msg["signing.failed"]))
             terminal.println(result.stderr)
             return
         }
 
-        terminal.println(TextColors.green("APK basariyla imzalandi: ${apkPath.fileName}"))
+        terminal.println(TextColors.green(msg.get("signing.success", apkPath.fileName)))
     }
 }

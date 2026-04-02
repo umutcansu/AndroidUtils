@@ -22,7 +22,7 @@ class ManifestDiffCommand : CliktCommand(name = "mdiff") {
 
     override fun run() {
         val result = ManifestDiff().compare(oldFile, newFile)
-        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal)
+        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal, config.messages)
         renderer.renderManifestDiff(result)
     }
 }

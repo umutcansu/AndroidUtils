@@ -2,6 +2,7 @@ package com.androidutil.cli
 
 import com.androidutil.core.analyzer.AabAnalyzer
 import com.androidutil.core.analyzer.ApkAnalyzer
+import com.androidutil.i18n.Messages
 import com.androidutil.output.JsonRenderer
 import com.androidutil.output.OutputRenderer
 import com.androidutil.output.TerminalRenderer
@@ -25,11 +26,11 @@ class AnalyzeCommand : CliktCommand(name = "analyze") {
         val renderer: OutputRenderer = if (config.json) {
             JsonRenderer(config.terminal)
         } else {
-            TerminalRenderer(config.terminal)
+            TerminalRenderer(config.terminal, config.messages)
         }
 
         if (!config.json) {
-            config.terminal.print("Analiz ediliyor: ${file.fileName}...")
+            config.terminal.print(config.messages.get("analyze.progress", file.fileName))
         }
         when (file.toString().substringAfterLast('.').lowercase()) {
             "aab" -> {

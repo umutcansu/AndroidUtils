@@ -19,7 +19,7 @@ class ResourcesCommand : CliktCommand(name = "resources") {
 
     override fun run() {
         val result = ResourceLister().list(file)
-        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal)
+        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal, config.messages)
         renderer.renderResourceReport(result)
     }
 }

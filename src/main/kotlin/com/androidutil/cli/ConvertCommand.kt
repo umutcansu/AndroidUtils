@@ -2,6 +2,7 @@ package com.androidutil.cli
 
 import com.androidutil.core.converter.AabConverter
 import com.androidutil.core.converter.ConversionConfig
+import com.androidutil.i18n.Messages
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.UsageError
@@ -40,23 +41,23 @@ class ConvertCommand : CliktCommand(name = "convert") {
     override fun run() {
         // Validate .aab extension
         if (!file.toString().endsWith(".aab", ignoreCase = true)) {
-            throw UsageError("Sadece .aab dosyalari donusturulebilir.")
+            throw UsageError(config.messages["convert.onlyAab"])
         }
 
         // Validate output path is writable
         if (output != null) {
             val parentDir = output!!.parent
             if (parentDir != null && !parentDir.isWritable()) {
-                throw UsageError("Cikti dizinine yazma izni yok: $parentDir")
+                throw UsageError(config.messages.get("convert.noWritePermission", parentDir))
             }
         }
 
         // Validate keystore options consistency
         if (keystore != null && keystorePassword == null) {
-            throw UsageError("--keystore kullanildiginda --keystore-password gereklidir.")
+            throw UsageError(config.messages["convert.keystorePasswordRequired"])
         }
         if (keystore != null && keyAlias == null) {
-            throw UsageError("--keystore kullanildiginda --key-alias gereklidir.")
+            throw UsageError(config.messages["convert.keyAliasRequired"])
         }
 
         val conversionConfig = ConversionConfig(
@@ -69,6 +70,6 @@ class ConvertCommand : CliktCommand(name = "convert") {
             deviceSpecPath = deviceSpec,
             universal = universal
         )
-        AabConverter(config.terminal).convert(conversionConfig)
+        AabConverter(config.terminal, config.messages).convert(conversionConfig)
     }
 }

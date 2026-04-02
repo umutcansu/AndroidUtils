@@ -1,5 +1,6 @@
 package com.androidutil.core.download
 
+import com.androidutil.i18n.Messages
 import com.github.ajalt.mordant.rendering.AnsiLevel
 import com.github.ajalt.mordant.terminal.Terminal
 import com.github.ajalt.mordant.terminal.TerminalRecorder
@@ -19,7 +20,7 @@ class PlayStoreDownloaderTest : DescribeSpec({
     fun createDownloader(): Pair<PlayStoreDownloader, TerminalRecorder> {
         val recorder = TerminalRecorder(ansiLevel = AnsiLevel.NONE)
         val terminal = Terminal(terminalInterface = recorder)
-        return PlayStoreDownloader(terminal) to recorder
+        return PlayStoreDownloader(terminal, Messages.forLanguage("tr")) to recorder
     }
 
     describe("isApkeepAvailable") {

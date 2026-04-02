@@ -1,5 +1,6 @@
 package com.androidutil.core.download
 
+import com.androidutil.i18n.Messages
 import com.androidutil.util.ProcessRunner
 import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.terminal.Terminal
@@ -13,7 +14,7 @@ import kotlin.io.path.*
  *   1. apkeep (if installed) — downloads from APKPure without auth
  *   2. Direct URL download — user provides direct APK link
  */
-class PlayStoreDownloader(private val terminal: Terminal) {
+class PlayStoreDownloader(private val terminal: Terminal, private val msg: Messages) {
 
     enum class Source { APKEEP_APKPURE, APKEEP_GPLAY, DIRECT_URL }
 
@@ -34,15 +35,15 @@ class PlayStoreDownloader(private val terminal: Terminal) {
      */
     fun downloadFromApkPure(packageName: String, outputDir: Path): Path? {
         if (!isApkeepAvailable()) {
-            terminal.println(red("apkeep bulunamadi."))
-            terminal.println(yellow("Kurmak icin: cargo install apkeep"))
-            terminal.println(yellow("  veya: brew install apkeep"))
-            terminal.println(yellow("  veya: https://github.com/EFForg/apkeep/releases"))
+            terminal.println(red(msg["downloader.apkeepNotFound"]))
+            terminal.println(yellow(msg["downloader.installHint"]))
+            terminal.println(yellow("  ${msg["downloader.installHintBrew"]}"))
+            terminal.println(yellow("  ${msg["downloader.installHintGithub"]}"))
             return null
         }
 
-        terminal.println("APKPure'dan indiriliyor: $packageName")
-        terminal.println(gray("Bu islem biraz zaman alabilir..."))
+        terminal.println(msg.get("downloader.downloadingApkPure", packageName))
+        terminal.println(gray(msg["downloader.pleaseWait"]))
 
         val cmd = listOf(
             "apkeep",
@@ -54,7 +55,7 @@ class PlayStoreDownloader(private val terminal: Terminal) {
         val result = ProcessRunner.run(cmd, timeoutSeconds = 300)
 
         if (result.exitCode != 0) {
-            terminal.println(red("Indirme hatasi: ${result.stderr.ifEmpty { result.stdout }}"))
+            terminal.println(red(msg.get("downloader.downloadError", result.stderr.ifEmpty { result.stdout })))
             return null
         }
 
@@ -68,7 +69,7 @@ class PlayStoreDownloader(private val terminal: Terminal) {
 
         if (downloadedFile != null) {
             val size = com.androidutil.util.FileSize.format(downloadedFile.fileSize())
-            terminal.println(green("Indirildi: ${downloadedFile.absolutePathString()} ($size)"))
+            terminal.println(green(msg.get("downloader.downloaded", downloadedFile.absolutePathString(), size)))
             return downloadedFile
         }
 
@@ -79,11 +80,11 @@ class PlayStoreDownloader(private val terminal: Terminal) {
 
         if (found != null) {
             val size = com.androidutil.util.FileSize.format(found.fileSize())
-            terminal.println(green("Indirildi: ${found.absolutePathString()} ($size)"))
+            terminal.println(green(msg.get("downloader.downloaded", found.absolutePathString(), size)))
             return found
         }
 
-        terminal.println(red("Dosya indirilemedi veya bulunamadi."))
+        terminal.println(red(msg["downloader.notFound"]))
         return null
     }
 
@@ -92,11 +93,11 @@ class PlayStoreDownloader(private val terminal: Terminal) {
      */
     fun downloadFromGooglePlay(packageName: String, email: String, aasToken: String, outputDir: Path): Path? {
         if (!isApkeepAvailable()) {
-            terminal.println(red("apkeep bulunamadi."))
+            terminal.println(red(msg["downloader.apkeepNotFound"]))
             return null
         }
 
-        terminal.println("Google Play'den indiriliyor: $packageName")
+        terminal.println(msg.get("downloader.downloadingGPlay", packageName))
 
         val cmd = listOf(
             "apkeep",
@@ -110,7 +111,7 @@ class PlayStoreDownloader(private val terminal: Terminal) {
         val result = ProcessRunner.run(cmd, timeoutSeconds = 300)
 
         if (result.exitCode != 0) {
-            terminal.println(red("Indirme hatasi: ${result.stderr.ifEmpty { result.stdout }}"))
+            terminal.println(red(msg.get("downloader.downloadError", result.stderr.ifEmpty { result.stdout })))
             return null
         }
 
@@ -120,11 +121,11 @@ class PlayStoreDownloader(private val terminal: Terminal) {
 
         if (found != null) {
             val size = com.androidutil.util.FileSize.format(found.fileSize())
-            terminal.println(green("Indirildi: ${found.absolutePathString()} ($size)"))
+            terminal.println(green(msg.get("downloader.downloaded", found.absolutePathString(), size)))
             return found
         }
 
-        terminal.println(red("Dosya indirilemedi."))
+        terminal.println(red(msg["downloader.downloadFailed"]))
         return null
     }
 
@@ -132,7 +133,7 @@ class PlayStoreDownloader(private val terminal: Terminal) {
      * Download APK from a direct URL.
      */
     fun downloadFromUrl(url: String, outputDir: Path, fileName: String? = null): Path? {
-        terminal.println("Indiriliyor: $url")
+        terminal.println(msg.get("downloader.downloadingUrl", url))
 
         val outputName = fileName ?: URI(url).path.substringAfterLast('/').ifBlank { "downloaded.apk" }
         val outputPath = outputDir.resolve(outputName)
@@ -146,12 +147,12 @@ class PlayStoreDownloader(private val terminal: Terminal) {
 
             if (curlResult.exitCode == 0 && outputPath.exists() && outputPath.fileSize() > 0) {
                 val size = com.androidutil.util.FileSize.format(outputPath.fileSize())
-                terminal.println(green("Indirildi: ${outputPath.absolutePathString()} ($size)"))
+                terminal.println(green(msg.get("downloader.downloaded", outputPath.absolutePathString(), size)))
                 return outputPath
             }
 
             // Fallback: Java HttpURLConnection
-            terminal.println(yellow("curl basarisiz, Java ile deneniyor..."))
+            terminal.println(yellow(msg["downloader.curlFailed"]))
             val connection = URI(url).toURL().openConnection() as java.net.HttpURLConnection
             connection.instanceFollowRedirects = true
             connection.connectTimeout = 30_000
@@ -164,14 +165,14 @@ class PlayStoreDownloader(private val terminal: Terminal) {
                     }
                 }
                 val size = com.androidutil.util.FileSize.format(outputPath.fileSize())
-                terminal.println(green("Indirildi: ${outputPath.absolutePathString()} ($size)"))
+                terminal.println(green(msg.get("downloader.downloaded", outputPath.absolutePathString(), size)))
                 return outputPath
             } else {
-                terminal.println(red("HTTP hatasi: ${connection.responseCode}"))
+                terminal.println(red(msg.get("downloader.httpError", connection.responseCode)))
                 return null
             }
         } catch (e: Exception) {
-            terminal.println(red("Indirme hatasi: ${e.message}"))
+            terminal.println(red(msg.get("downloader.downloadError", e.message ?: "")))
             return null
         }
     }

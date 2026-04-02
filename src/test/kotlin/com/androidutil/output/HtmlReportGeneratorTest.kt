@@ -11,6 +11,7 @@ import com.androidutil.core.playcompat.PlayCompatResult
 import com.androidutil.core.resources.ResourceCategory
 import com.androidutil.core.resources.ResourceEntry
 import com.androidutil.core.resources.ResourceReport
+import com.androidutil.i18n.Messages
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.string.shouldContain
@@ -20,7 +21,7 @@ import kotlin.io.path.readText
 
 class HtmlReportGeneratorTest : DescribeSpec({
 
-    val generator = HtmlReportGenerator()
+    val generator = HtmlReportGenerator(Messages.forLanguage("tr"))
 
     describe("generateReport") {
         it("should create valid HTML file with all sections") {

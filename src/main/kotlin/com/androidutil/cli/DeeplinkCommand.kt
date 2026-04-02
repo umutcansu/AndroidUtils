@@ -18,7 +18,7 @@ class DeeplinkCommand : CliktCommand(name = "deeplink") {
     private val config by requireObject<AppConfig>()
 
     override fun run() {
-        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal)
+        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal, config.messages)
         val result = DeeplinkAnalyzer().analyze(file)
         renderer.renderDeeplinkAnalysis(result)
     }

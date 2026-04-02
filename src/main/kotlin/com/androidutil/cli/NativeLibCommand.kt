@@ -21,7 +21,7 @@ class NativeLibCommand : CliktCommand(name = "nativelib") {
         if (!config.json) config.terminal.print("Native kutuphaneler inceleniyor...")
         val result = NativeLibInspector().inspect(file)
         if (!config.json) config.terminal.print("\r\u001B[K")
-        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal)
+        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal, config.messages)
         renderer.renderNativeLibReport(result)
     }
 }

@@ -25,7 +25,7 @@ class DecodeCommand : CliktCommand(name = "decode") {
     private val config by requireObject<AppConfig>()
 
     override fun run() {
-        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal)
+        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal, config.messages)
         val stackTrace = stacktraceFile.readText()
         val result = StackTraceDecoder().decode(stackTrace, mappingFile)
         renderer.renderDecodedStackTrace(result)

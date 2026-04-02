@@ -6,13 +6,14 @@ import com.androidutil.core.nativelib.NativeLibReport
 import com.androidutil.core.playcompat.PlayCompatResult
 import com.androidutil.core.playcompat.CheckStatus
 import com.androidutil.core.resources.ResourceReport
+import com.androidutil.i18n.Messages
 import com.androidutil.util.FileSize
 import java.nio.file.Path
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.io.path.writeText
 
-class HtmlReportGenerator {
+class HtmlReportGenerator(private val msg: Messages) {
 
     fun generateReport(
         filePath: String,
@@ -25,54 +26,54 @@ class HtmlReportGenerator {
     ) {
         val html = buildString {
             appendLine("<!DOCTYPE html>")
-            appendLine("<html lang='tr'><head><meta charset='UTF-8'>")
+            appendLine("<html lang='${if (msg["common.yes"] == "Yes") "en" else "tr"}'><head><meta charset='UTF-8'>")
             appendLine("<meta name='viewport' content='width=device-width, initial-scale=1.0'>")
-            appendLine("<title>AndroidUtil Raporu - $filePath</title>")
+            appendLine("<title>${msg.get("html.title", filePath)}</title>")
             appendLine("<style>")
             appendLine(CSS)
             appendLine("</style></head><body>")
             appendLine("<div class='container'>")
 
             // Header
-            appendLine("<h1>AndroidUtil Analiz Raporu</h1>")
-            appendLine("<p class='meta'>Olusturulma: ${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))}</p>")
-            appendLine("<p class='meta'>Dosya: <code>$filePath</code></p>")
+            appendLine("<h1>${msg["html.header"]}</h1>")
+            appendLine("<p class='meta'>${msg.get("html.createdAt", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))}</p>")
+            appendLine("<p class='meta'>${msg.get("html.file", "<code>$filePath</code>")}</p>")
 
             // Manifest section
             val manifest = apkResult?.manifestInfo ?: aabResult?.manifestInfo
             if (manifest != null) {
-                appendLine("<h2>Manifest</h2>")
+                appendLine("<h2>${msg["html.manifest"]}</h2>")
                 appendLine("<table><tbody>")
-                appendLine("<tr><td>Paket</td><td><strong>${manifest.packageName}</strong></td></tr>")
-                appendLine("<tr><td>Surum</td><td>${manifest.versionName} (${manifest.versionCode})</td></tr>")
+                appendLine("<tr><td>${msg["html.package"]}</td><td><strong>${manifest.packageName}</strong></td></tr>")
+                appendLine("<tr><td>${msg["html.version"]}</td><td>${manifest.versionName} (${manifest.versionCode})</td></tr>")
                 appendLine("<tr><td>Min SDK</td><td>${manifest.minSdk}</td></tr>")
                 appendLine("<tr><td>Target SDK</td><td>${manifest.targetSdk}</td></tr>")
                 if (manifest.compileSdk != null) appendLine("<tr><td>Compile SDK</td><td>${manifest.compileSdk}</td></tr>")
-                appendLine("<tr><td>Bilesenler</td><td>${manifest.activities} activity, ${manifest.services} service, ${manifest.receivers} receiver, ${manifest.providers} provider</td></tr>")
+                appendLine("<tr><td>${msg["html.components"]}</td><td>${manifest.activities} activity, ${manifest.services} service, ${manifest.receivers} receiver, ${manifest.providers} provider</td></tr>")
                 appendLine("</tbody></table>")
             }
 
             // Size breakdown (APK only)
             if (apkResult != null) {
-                appendLine("<h2>Boyut Dagilimi</h2>")
-                appendLine("<p>Toplam: <strong>${FileSize.formatDetailed(apkResult.fileSizeBytes)}</strong></p>")
-                appendLine("<table><thead><tr><th>Bilesen</th><th>Boyut</th><th>%</th></tr></thead><tbody>")
+                appendLine("<h2>${msg["html.sizeBreakdown"]}</h2>")
+                appendLine("<p>${msg.get("html.total", "<strong>${FileSize.formatDetailed(apkResult.fileSizeBytes)}</strong>")}</p>")
+                appendLine("<table><thead><tr><th>${msg["html.component"]}</th><th>${msg["common.size"]}</th><th>%</th></tr></thead><tbody>")
                 val bd = apkResult.sizeBreakdown
                 appendLine("<tr><td>DEX</td><td>${FileSize.format(bd.dexBytes)}</td><td>${FileSize.percentage(bd.dexBytes, bd.totalBytes)}</td></tr>")
-                appendLine("<tr><td>Kaynaklar</td><td>${FileSize.format(bd.resourceBytes)}</td><td>${FileSize.percentage(bd.resourceBytes, bd.totalBytes)}</td></tr>")
-                appendLine("<tr><td>Native Kutuphaneler</td><td>${FileSize.format(bd.nativeLibBytes)}</td><td>${FileSize.percentage(bd.nativeLibBytes, bd.totalBytes)}</td></tr>")
+                appendLine("<tr><td>${msg["html.resources"]}</td><td>${FileSize.format(bd.resourceBytes)}</td><td>${FileSize.percentage(bd.resourceBytes, bd.totalBytes)}</td></tr>")
+                appendLine("<tr><td>${msg["html.nativeLibraries"]}</td><td>${FileSize.format(bd.nativeLibBytes)}</td><td>${FileSize.percentage(bd.nativeLibBytes, bd.totalBytes)}</td></tr>")
                 appendLine("<tr><td>Asset</td><td>${FileSize.format(bd.assetBytes)}</td><td>${FileSize.percentage(bd.assetBytes, bd.totalBytes)}</td></tr>")
-                appendLine("<tr><td>Diger</td><td>${FileSize.format(bd.otherBytes)}</td><td>${FileSize.percentage(bd.otherBytes, bd.totalBytes)}</td></tr>")
+                appendLine("<tr><td>${msg["html.other"]}</td><td>${FileSize.format(bd.otherBytes)}</td><td>${FileSize.percentage(bd.otherBytes, bd.totalBytes)}</td></tr>")
                 appendLine("</tbody></table>")
             }
 
             // Play compatibility
             if (playCompat != null) {
-                appendLine("<h2>Google Play Uyumlulugu</h2>")
+                appendLine("<h2>${msg["html.playCompat"]}</h2>")
                 val readyClass = if (playCompat.isReady) "pass" else "fail"
-                val readyText = if (playCompat.isReady) "HAZIR" else "HAZIR DEGIL"
-                appendLine("<p class='status-$readyClass'><strong>$readyText</strong> (${playCompat.passCount} basarili, ${playCompat.failCount} basarisiz, ${playCompat.warnCount} uyari)</p>")
-                appendLine("<table><thead><tr><th>Kontrol</th><th>Durum</th><th>Detay</th></tr></thead><tbody>")
+                val readyText = if (playCompat.isReady) msg["html.ready"] else msg["html.notReady"]
+                appendLine("<p class='status-$readyClass'><strong>$readyText</strong> (${msg.get("html.playStats", playCompat.passCount, playCompat.failCount, playCompat.warnCount)})</p>")
+                appendLine("<table><thead><tr><th>${msg["html.check"]}</th><th>${msg["html.status"]}</th><th>${msg["html.detail"]}</th></tr></thead><tbody>")
                 playCompat.checks.forEach { check ->
                     val statusClass = when (check.status) {
                         CheckStatus.PASS -> "pass"
@@ -81,8 +82,8 @@ class HtmlReportGenerator {
                     }
                     val statusText = when (check.status) {
                         CheckStatus.PASS -> "OK"
-                        CheckStatus.FAIL -> "HATA"
-                        CheckStatus.WARN -> "UYARI"
+                        CheckStatus.FAIL -> msg["terminal.error"]
+                        CheckStatus.WARN -> msg["terminal.warning"]
                     }
                     appendLine("<tr><td>${check.name}</td><td class='status-$statusClass'>$statusText</td><td>${check.detail}</td></tr>")
                 }
@@ -91,31 +92,31 @@ class HtmlReportGenerator {
 
             // Native libraries
             if (nativeLibReport != null && nativeLibReport.totalLibs > 0) {
-                appendLine("<h2>Native Kutuphaneler (${nativeLibReport.totalLibs})</h2>")
-                appendLine("<p>Toplam boyut: ${FileSize.format(nativeLibReport.totalSizeBytes)} | ABI'ler: ${nativeLibReport.abiSummary.entries.joinToString(", ") { "${it.key} (${it.value})" }}</p>")
-                appendLine("<table><thead><tr><th>Kutuphane</th><th>ABI</th><th>Boyut</th><th>Strip</th><th>16KB</th></tr></thead><tbody>")
+                appendLine("<h2>${msg.get("html.nativeLibs", nativeLibReport.totalLibs)}</h2>")
+                appendLine("<p>${msg.get("html.nativeLibSize", FileSize.format(nativeLibReport.totalSizeBytes), nativeLibReport.abiSummary.entries.joinToString(", ") { "${it.key} (${it.value})" })}</p>")
+                appendLine("<table><thead><tr><th>${msg["terminal.library"]}</th><th>ABI</th><th>${msg["common.size"]}</th><th>${msg["html.strip"]}</th><th>16KB</th></tr></thead><tbody>")
                 nativeLibReport.libraries.forEach { lib ->
                     val alignText = when {
                         lib.elfClass == 32 -> "<span class='meta'>—</span>"
                         lib.pageAligned -> "<span class='status-pass'>OK</span>"
-                        else -> "<span class='status-fail'>BASARISIZ</span>"
+                        else -> "<span class='status-fail'>${msg["terminal.failed"]}</span>"
                     }
-                    appendLine("<tr><td>${lib.path.substringAfterLast('/')}</td><td>${lib.abi}</td><td>${FileSize.format(lib.sizeBytes)}</td><td>${if (lib.isStripped) "Evet" else "<span class='status-warn'>Hayir</span>"}</td><td>$alignText</td></tr>")
+                    appendLine("<tr><td>${lib.path.substringAfterLast('/')}</td><td>${lib.abi}</td><td>${FileSize.format(lib.sizeBytes)}</td><td>${if (lib.isStripped) msg["common.yes"] else "<span class='status-warn'>${msg["common.no"]}</span>"}</td><td>$alignText</td></tr>")
                 }
                 appendLine("</tbody></table>")
             }
 
             // Resources
             if (resourceReport != null) {
-                appendLine("<h2>Kaynaklar (${resourceReport.totalResources} dosya, ${FileSize.format(resourceReport.totalBytes)})</h2>")
-                appendLine("<table><thead><tr><th>Kategori</th><th>Dosya</th><th>Boyut</th></tr></thead><tbody>")
+                appendLine("<h2>${msg.get("html.resources.title", resourceReport.totalResources, FileSize.format(resourceReport.totalBytes))}</h2>")
+                appendLine("<table><thead><tr><th>${msg["html.category"]}</th><th>${msg["html.fileCount"]}</th><th>${msg["common.size"]}</th></tr></thead><tbody>")
                 resourceReport.categories.forEach { cat ->
                     appendLine("<tr><td>${cat.name}</td><td>${cat.fileCount}</td><td>${FileSize.format(cat.totalBytes)}</td></tr>")
                 }
                 appendLine("</tbody></table>")
 
-                appendLine("<h3>En Buyuk Dosyalar (Ilk 15)</h3>")
-                appendLine("<table><thead><tr><th>Dosya</th><th>Sikistirilmis</th><th>Sikistirilmamis</th></tr></thead><tbody>")
+                appendLine("<h3>${msg["html.largestFiles"]}</h3>")
+                appendLine("<table><thead><tr><th>${msg["html.fileCount"]}</th><th>${msg["html.compressed"]}</th><th>${msg["html.uncompressed"]}</th></tr></thead><tbody>")
                 resourceReport.largestFiles.forEach { entry ->
                     appendLine("<tr><td><code>${entry.path}</code></td><td>${FileSize.format(entry.compressedBytes)}</td><td>${FileSize.format(entry.uncompressedBytes)}</td></tr>")
                 }
@@ -124,7 +125,7 @@ class HtmlReportGenerator {
 
             // Permissions
             if (manifest != null && manifest.permissions.isNotEmpty()) {
-                appendLine("<h2>Izinler (${manifest.permissions.size})</h2>")
+                appendLine("<h2>${msg.get("html.permissions", manifest.permissions.size)}</h2>")
                 appendLine("<ul>")
                 manifest.permissions.sorted().forEach { perm ->
                     appendLine("<li><code>${perm.substringAfterLast('.')}</code> <span class='meta'>$perm</span></li>")
@@ -136,26 +137,26 @@ class HtmlReportGenerator {
             val alignmentResults = apkResult?.alignmentResults ?: aabResult?.alignmentResults
             if (alignmentResults != null && alignmentResults.isNotEmpty()) {
                 val results64bit = alignmentResults.filter { it.elfClass == 64 }
-                appendLine("<h2>16KB Sayfa Hizalamasi</h2>")
+                appendLine("<h2>${msg["html.pageAlignment"]}</h2>")
                 val allOk = results64bit.isEmpty() || results64bit.all { it.isCompatible }
                 val statusClass = if (allOk) "pass" else "fail"
-                appendLine("<p class='status-$statusClass'>${if (allOk) "TUMU UYUMLU" else "UYUMSUZ KUTUPHANE BULUNDU"}</p>")
+                appendLine("<p class='status-$statusClass'>${if (allOk) msg["html.allCompatible"] else msg["html.incompatibleFound"]}</p>")
                 if (results64bit.isNotEmpty()) {
-                    appendLine("<table><thead><tr><th>Kutuphane</th><th>ABI</th><th>ELF</th><th>Min Hiza</th><th>Durum</th></tr></thead><tbody>")
+                    appendLine("<table><thead><tr><th>${msg["terminal.library"]}</th><th>ABI</th><th>ELF</th><th>${msg["html.minAlignment"]}</th><th>${msg["html.status"]}</th></tr></thead><tbody>")
                     results64bit.forEach { r ->
                         val minAlign = r.ptLoadSegments.minOfOrNull { it.pAlign } ?: 0L
                         val cls = if (r.isCompatible) "pass" else "fail"
-                        appendLine("<tr><td>${r.libraryPath.substringAfterLast('/')}</td><td>${r.abi}</td><td>${r.elfClass}-bit</td><td>$minAlign</td><td class='status-$cls'>${if (r.isCompatible) "OK" else "BASARISIZ"}</td></tr>")
+                        appendLine("<tr><td>${r.libraryPath.substringAfterLast('/')}</td><td>${r.abi}</td><td>${r.elfClass}-bit</td><td>$minAlign</td><td class='status-$cls'>${if (r.isCompatible) "OK" else msg["terminal.failed"]}</td></tr>")
                     }
                     appendLine("</tbody></table>")
                 }
                 val results32bit = alignmentResults.filter { it.elfClass == 32 }
                 if (results32bit.isNotEmpty()) {
-                    appendLine("<p class='meta'>32-bit kutuphaneler (${results32bit.size} adet) — 16KB alignment gerekmez</p>")
+                    appendLine("<p class='meta'>${msg.get("html.32bitNote", results32bit.size)}</p>")
                 }
             }
 
-            appendLine("<footer><p>AndroidUtil v1.0.0 tarafindan olusturuldu</p></footer>")
+            appendLine("<footer><p>${msg["html.footer"]}</p></footer>")
             appendLine("</div></body></html>")
         }
 

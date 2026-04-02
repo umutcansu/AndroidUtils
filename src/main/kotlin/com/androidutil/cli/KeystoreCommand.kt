@@ -26,7 +26,7 @@ class KeystoreInfoCommand : CliktCommand(name = "info") {
     private val config by requireObject<AppConfig>()
 
     override fun run() {
-        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal)
+        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal, config.messages)
         val result = KeystoreInspector().inspect(file, password)
         renderer.renderKeystoreInfo(result)
     }

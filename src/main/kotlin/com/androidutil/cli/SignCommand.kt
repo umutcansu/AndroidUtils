@@ -38,7 +38,7 @@ class SignApkCommand : CliktCommand(name = "apk") {
     private val config by requireObject<AppConfig>()
 
     override fun run() {
-        SigningService(config.terminal).signApk(
+        SigningService(config.terminal, config.messages).signApk(
             apkPath = file,
             keystorePath = keystore,
             keystorePassword = keystorePassword,
@@ -57,7 +57,7 @@ class SignVerifyCommand : CliktCommand(name = "verify") {
     private val config by requireObject<AppConfig>()
 
     override fun run() {
-        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal)
+        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal, config.messages)
         val result = SignatureVerifier().verify(file)
         renderer.renderSignatureVerification(result)
     }

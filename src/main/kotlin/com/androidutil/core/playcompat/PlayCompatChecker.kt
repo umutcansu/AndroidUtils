@@ -3,6 +3,7 @@ package com.androidutil.core.playcompat
 import com.androidutil.core.elf.ElfParser
 import com.androidutil.core.manifest.ManifestInfo
 import com.androidutil.core.manifest.ManifestParser
+import com.androidutil.i18n.Messages
 import com.androidutil.util.ZipUtils
 import java.nio.file.Path
 
@@ -66,7 +67,7 @@ class PlayCompatChecker {
         )
     }
 
-    fun check(filePath: Path): PlayCompatResult {
+    fun check(filePath: Path, msg: Messages): PlayCompatResult {
         val ext = filePath.toString().substringAfterLast('.').lowercase()
         val manifest = try {
             when (ext) {
@@ -84,8 +85,8 @@ class PlayCompatChecker {
             checks.add(CompatCheck(
                 "Target SDK",
                 if (targetOk) CheckStatus.PASS else CheckStatus.FAIL,
-                if (targetOk) "targetSdk=${manifest.targetSdk} (>= $REQUIRED_TARGET_SDK)"
-                else "targetSdk=${manifest.targetSdk} — Play Store $REQUIRED_TARGET_SDK+ gerektiriyor"
+                if (targetOk) msg.get("playcompat.targetOk", manifest.targetSdk, REQUIRED_TARGET_SDK)
+                else msg.get("playcompat.targetFail", manifest.targetSdk, REQUIRED_TARGET_SDK)
             ))
         }
 
@@ -105,27 +106,27 @@ class PlayCompatChecker {
                 checks.add(CompatCheck(
                     "16KB Page Alignment",
                     if (allAligned) CheckStatus.PASS else CheckStatus.FAIL,
-                    if (allAligned) "Tum 64-bit kutuphane 16KB uyumlu (${results64bit.size} .so)"
-                    else "$incompatCount/${results64bit.size} 64-bit kutuphane 16KB uyumsuz"
+                    if (allAligned) msg.get("playcompat.allAligned", results64bit.size)
+                    else msg.get("playcompat.notAligned", incompatCount, results64bit.size)
                 ))
             } else if (results32bit.isNotEmpty()) {
                 checks.add(CompatCheck(
                     "16KB Page Alignment",
                     CheckStatus.PASS,
-                    "Sadece 32-bit kutuphane mevcut — 16KB alignment gerekmez"
+                    msg["playcompat.only32bit"]
                 ))
             } else {
                 checks.add(CompatCheck(
                     "16KB Page Alignment",
                     CheckStatus.PASS,
-                    "Native kutuphane yok — kontrol gerekmiyor"
+                    msg["playcompat.noNativeLib"]
                 ))
             }
         } else {
             checks.add(CompatCheck(
                 "16KB Page Alignment",
                 CheckStatus.PASS,
-                "Native kutuphane yok — kontrol gerekmiyor"
+                msg["playcompat.noNativeLib"]
             ))
         }
 
@@ -134,15 +135,15 @@ class PlayCompatChecker {
             val sensitive = manifest.permissions.filter { it in SENSITIVE_PERMISSIONS }
             if (sensitive.isNotEmpty()) {
                 checks.add(CompatCheck(
-                    "Hassas Izinler",
+                    msg["playcompat.sensitivePermsName"],
                     CheckStatus.WARN,
-                    "${sensitive.size} hassas izin tespit edildi — Play Console'da beyan gerekebilir: ${sensitive.map { it.substringAfterLast('.') }.joinToString(", ")}"
+                    msg.get("playcompat.sensitivePerms", sensitive.size, sensitive.map { it.substringAfterLast('.') }.joinToString(", "))
                 ))
             } else {
                 checks.add(CompatCheck(
-                    "Hassas Izinler",
+                    msg["playcompat.sensitivePermsName"],
                     CheckStatus.PASS,
-                    "Hassas izin yok"
+                    msg["playcompat.noSensitivePerms"]
                 ))
             }
         }
@@ -152,8 +153,8 @@ class PlayCompatChecker {
             checks.add(CompatCheck(
                 "Min SDK",
                 if (manifest.minSdk >= 21) CheckStatus.PASS else CheckStatus.WARN,
-                if (manifest.minSdk >= 21) "minSdk=${manifest.minSdk} (>= 21)"
-                else "minSdk=${manifest.minSdk} — Play Store yeni uygulamalar icin 21+ oneriyor"
+                if (manifest.minSdk >= 21) msg.get("playcompat.minSdkOk", manifest.minSdk)
+                else msg.get("playcompat.minSdkWarn", manifest.minSdk)
             ))
         }
 
@@ -167,10 +168,10 @@ class PlayCompatChecker {
             }.filter { it.isNotEmpty() }.distinct()
             val has64bit = abis.any { it == "arm64-v8a" || it == "x86_64" }
             checks.add(CompatCheck(
-                "64-bit Destek",
+                msg["playcompat.64bitName"],
                 if (has64bit) CheckStatus.PASS else CheckStatus.FAIL,
-                if (has64bit) "64-bit ABI mevcut: ${abis.filter { it == "arm64-v8a" || it == "x86_64" }.joinToString(", ")}"
-                else "64-bit ABI bulunamadi — Play Store 64-bit zorunlu kilar (ABI'ler: ${abis.joinToString(", ")})"
+                if (has64bit) msg.get("playcompat.64bitOk", abis.filter { it == "arm64-v8a" || it == "x86_64" }.joinToString(", "))
+                else msg.get("playcompat.64bitFail", abis.joinToString(", "))
             ))
         }
 
@@ -178,9 +179,9 @@ class PlayCompatChecker {
         if (manifest != null && ext == "apk") {
             // We check via aapt2 output if possible, otherwise skip
             checks.add(CompatCheck(
-                "Release Build",
+                msg["playcompat.releaseBuild"],
                 CheckStatus.PASS,
-                "APK imza kontrolu ayri olarak verify menusu ile yapilabilir"
+                msg["playcompat.releaseDetail"]
             ))
         }
 

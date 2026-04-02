@@ -1,5 +1,6 @@
 package com.androidutil.core.adb
 
+import com.androidutil.i18n.Messages
 import com.androidutil.sdk.AndroidSdkLocator
 import com.androidutil.util.ProcessRunner
 import com.github.ajalt.mordant.input.interactiveSelectList
@@ -18,7 +19,7 @@ data class DeviceInfo(
     val status: String
 )
 
-class AdbService(private val terminal: Terminal) {
+class AdbService(private val terminal: Terminal, private val msg: Messages) {
 
     private fun findAdb(): Path? {
         val sdkHome = AndroidSdkLocator.resolveAndroidHome() ?: return null
@@ -54,17 +55,17 @@ class AdbService(private val terminal: Terminal) {
     fun selectDevice(): String? {
         val devices = listDevices()
         if (devices.isEmpty()) {
-            terminal.println(red("Bagli cihaz bulunamadi. ADB ile bagli bir cihaz veya emulator gerekli."))
+            terminal.println(red(msg["adb.noDeviceFound"]))
             return null
         }
         if (devices.size == 1) {
             val dev = devices.first()
-            terminal.println("Cihaz: ${dev.model.ifEmpty { dev.serial }} (${dev.status})")
+            terminal.println(msg.get("adb.device", dev.model.ifEmpty { dev.serial }, dev.status))
             return dev.serial
         }
 
         // Multi-device interactive selection
-        terminal.println("Birden fazla cihaz bagli — birini sec:")
+        terminal.println(msg["adb.multiDevice"])
         terminal.println()
         val selected = terminal.interactiveSelectList {
             devices.forEach { dev ->
@@ -83,14 +84,14 @@ class AdbService(private val terminal: Terminal) {
 
     fun installApk(apkPath: Path, device: String? = null) {
         val targetDevice = device ?: selectDevice() ?: return
-        terminal.println("Installing ${apkPath.name}...")
+        terminal.println(msg.get("adb.installing", apkPath.name))
         val cmd = mutableListOf(adb(), "-s", targetDevice, "install", "-r", "-d", apkPath.absolutePathString())
 
         val result = ProcessRunner.run(cmd, timeoutSeconds = 120)
         if (result.exitCode == 0 && result.stdout.contains("Success")) {
-            terminal.println(green("Kurulum basarili!"))
+            terminal.println(green(msg["adb.installSuccess"]))
         } else {
-            terminal.println(red("Kurulum basarisiz: ${result.stderr.ifEmpty { result.stdout }}"))
+            terminal.println(red(msg.get("adb.installFailed", result.stderr.ifEmpty { result.stdout })))
         }
     }
 
@@ -100,39 +101,39 @@ class AdbService(private val terminal: Terminal) {
         val targetDevice = device ?: selectDevice() ?: return
 
         // Install
-        terminal.println("Installing ${apkPath.name}...")
+        terminal.println(msg.get("adb.installing", apkPath.name))
         val installCmd = mutableListOf(adb(), "-s", targetDevice, "install", "-r", "-d", apkPath.absolutePathString())
         val installResult = ProcessRunner.run(installCmd, timeoutSeconds = 120)
 
         if (installResult.exitCode != 0 || !installResult.stdout.contains("Success")) {
-            terminal.println(red("Kurulum basarisiz: ${installResult.stderr.ifEmpty { installResult.stdout }}"))
+            terminal.println(red(msg.get("adb.installFailed", installResult.stderr.ifEmpty { installResult.stdout })))
             return
         }
-        terminal.println(green("Kurulum basarili!"))
+        terminal.println(green(msg["adb.installSuccess"]))
 
         // Find launcher activity
         val launcherActivity = findLauncherActivity(packageName, targetDevice)
         if (launcherActivity != null) {
-            terminal.println("Uygulama baslatiliyor: $launcherActivity")
+            terminal.println(msg.get("adb.launching", launcherActivity))
             val launchCmd = mutableListOf(
                 adb(), "-s", targetDevice, "shell", "am", "start",
                 "-n", "$packageName/$launcherActivity"
             )
             val launchResult = ProcessRunner.run(launchCmd)
             if (launchResult.exitCode == 0) {
-                terminal.println(green("Uygulama baslatildi!"))
+                terminal.println(green(msg["adb.launched"]))
             } else {
-                terminal.println(yellow("Baslatilamadi: ${launchResult.stderr.ifEmpty { launchResult.stdout }}"))
+                terminal.println(yellow(msg.get("adb.launchFailed", launchResult.stderr.ifEmpty { launchResult.stdout })))
             }
         } else {
             // Fallback: monkey launch
-            terminal.println("Launcher activity bulunamadi, monkey ile baslatiliyor...")
+            terminal.println(msg["adb.launcherNotFound"])
             val monkeyCmd = mutableListOf(
                 adb(), "-s", targetDevice, "shell", "monkey",
                 "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1"
             )
             ProcessRunner.run(monkeyCmd)
-            terminal.println(green("Uygulama baslatildi!"))
+            terminal.println(green(msg["adb.launched"]))
         }
     }
 
@@ -141,16 +142,16 @@ class AdbService(private val terminal: Terminal) {
         val launcherActivity = findLauncherActivity(packageName, targetDevice)
 
         if (launcherActivity != null) {
-            terminal.println("Baslatiliyor: $packageName/$launcherActivity")
+            terminal.println(msg.get("adb.starting", "$packageName/$launcherActivity"))
             val cmd = mutableListOf(
                 adb(), "-s", targetDevice, "shell", "am", "start",
                 "-n", "$packageName/$launcherActivity"
             )
             val result = ProcessRunner.run(cmd)
             if (result.exitCode == 0) {
-                terminal.println(green("Uygulama baslatildi!"))
+                terminal.println(green(msg["adb.launched"]))
             } else {
-                terminal.println(red("Hata: ${result.stderr.ifEmpty { result.stdout }}"))
+                terminal.println(red(msg.get("common.error", result.stderr.ifEmpty { result.stdout })))
             }
         } else {
             // Fallback
@@ -159,7 +160,7 @@ class AdbService(private val terminal: Terminal) {
                 "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1"
             )
             ProcessRunner.run(cmd)
-            terminal.println(green("Uygulama baslatildi!"))
+            terminal.println(green(msg["adb.launched"]))
         }
     }
 
@@ -194,7 +195,7 @@ class AdbService(private val terminal: Terminal) {
     // ── Test Deeplink ──
 
     fun testDeeplink(url: String, device: String? = null) {
-        terminal.println("Deeplink test ediliyor: $url")
+        terminal.println(msg.get("adb.testingDeeplink", url))
         val targetDevice = device ?: selectDevice() ?: return
         val cmd = mutableListOf(
             adb(), "-s", targetDevice, "shell", "am", "start",
@@ -203,12 +204,12 @@ class AdbService(private val terminal: Terminal) {
 
         val result = ProcessRunner.run(cmd)
         if (result.exitCode == 0) {
-            terminal.println(green("Deeplink gonderildi. Cihazi kontrol et."))
+            terminal.println(green(msg["adb.deeplinkSent"]))
             if (result.stdout.contains("Error")) {
                 terminal.println(yellow("Uyari: ${result.stdout.trim()}"))
             }
         } else {
-            terminal.println(red("Hata: ${result.stderr.ifEmpty { result.stdout }}"))
+            terminal.println(red(msg.get("common.error", result.stderr.ifEmpty { result.stdout })))
         }
     }
 
@@ -216,8 +217,8 @@ class AdbService(private val terminal: Terminal) {
 
     fun logcat(packageName: String, device: String? = null) {
         val targetDevice = device ?: selectDevice() ?: return
-        terminal.println("Logcat baslatiliyor: $packageName")
-        terminal.println(gray("Durdurmak icin Ctrl+C"))
+        terminal.println(msg.get("adb.logcatStarting", packageName))
+        terminal.println(gray(msg["adb.logcatStop"]))
         terminal.println()
 
         // Get PID for package filtering
@@ -245,22 +246,22 @@ class AdbService(private val terminal: Terminal) {
 
     fun screenshot(outputPath: Path, device: String? = null) {
         val targetDevice = device ?: selectDevice() ?: return
-        terminal.println("Screenshot aliniyor...")
+        terminal.println(msg["adb.takingScreenshot"])
         val remotePath = "/sdcard/screenshot_androidutil.png"
 
         val captureCmd = mutableListOf(adb(), "-s", targetDevice, "shell", "screencap", "-p", remotePath)
         val captureResult = ProcessRunner.run(captureCmd)
         if (captureResult.exitCode != 0) {
-            terminal.println(red("Screenshot alinamadi: ${captureResult.stderr}"))
+            terminal.println(red(msg.get("adb.screenshotFailed", captureResult.stderr)))
             return
         }
 
         val pullCmd = mutableListOf(adb(), "-s", targetDevice, "pull", remotePath, outputPath.absolutePathString())
         val pullResult = ProcessRunner.run(pullCmd)
         if (pullResult.exitCode == 0) {
-            terminal.println(green("Screenshot kaydedildi: $outputPath"))
+            terminal.println(green(msg.get("adb.screenshotSaved", outputPath)))
         } else {
-            terminal.println(red("Dosya cekilemedi: ${pullResult.stderr}"))
+            terminal.println(red(msg.get("adb.screenshotPullFailed", pullResult.stderr)))
         }
 
         // Cleanup
@@ -271,14 +272,14 @@ class AdbService(private val terminal: Terminal) {
 
     fun clearAppData(packageName: String, device: String? = null) {
         val targetDevice = device ?: selectDevice() ?: return
-        terminal.println("Uygulama verisi temizleniyor: $packageName")
+        terminal.println(msg.get("adb.clearingData", packageName))
         val cmd = mutableListOf(adb(), "-s", targetDevice, "shell", "pm", "clear", packageName)
 
         val result = ProcessRunner.run(cmd)
         if (result.exitCode == 0 && result.stdout.contains("Success")) {
-            terminal.println(green("Veriler temizlendi."))
+            terminal.println(green(msg["adb.dataCleared"]))
         } else {
-            terminal.println(red("Hata: ${result.stderr.ifEmpty { result.stdout }}"))
+            terminal.println(red(msg.get("common.error", result.stderr.ifEmpty { result.stdout })))
         }
     }
 
@@ -286,14 +287,14 @@ class AdbService(private val terminal: Terminal) {
 
     fun uninstall(packageName: String, device: String? = null) {
         val targetDevice = device ?: selectDevice() ?: return
-        terminal.println("Uygulama kaldiriliyor: $packageName")
+        terminal.println(msg.get("adb.uninstalling", packageName))
         val cmd = mutableListOf(adb(), "-s", targetDevice, "uninstall", packageName)
 
         val result = ProcessRunner.run(cmd, timeoutSeconds = 30)
         if (result.exitCode == 0 && result.stdout.contains("Success")) {
-            terminal.println(green("Uygulama kaldirildi."))
+            terminal.println(green(msg["adb.uninstalled"]))
         } else {
-            terminal.println(red("Hata: ${result.stderr.ifEmpty { result.stdout }}"))
+            terminal.println(red(msg.get("common.error", result.stderr.ifEmpty { result.stdout })))
         }
     }
 
@@ -303,12 +304,12 @@ class AdbService(private val terminal: Terminal) {
         val targetDevice = device ?: selectDevice() ?: return null
 
         // Find APK path on device
-        terminal.println("APK yolu araniyor: $packageName")
+        terminal.println(msg.get("adb.searchingApk", packageName))
         val pathCmd = mutableListOf(adb(), "-s", targetDevice, "shell", "pm", "path", packageName)
         val pathResult = ProcessRunner.run(pathCmd, timeoutSeconds = 10)
 
         if (pathResult.exitCode != 0 || pathResult.stdout.isBlank()) {
-            terminal.println(red("Paket bulunamadi: $packageName"))
+            terminal.println(red(msg.get("adb.packageNotFound", packageName)))
             return null
         }
 
@@ -318,7 +319,7 @@ class AdbService(private val terminal: Terminal) {
             .map { it.removePrefix("package:").trim() }
 
         if (apkPaths.isEmpty()) {
-            terminal.println(red("APK yolu bulunamadi."))
+            terminal.println(red(msg["adb.apkPathNotFound"]))
             return null
         }
 
@@ -330,8 +331,8 @@ class AdbService(private val terminal: Terminal) {
         val versionName = Regex("versionName=([^\\s]+)").find(versionResult.stdout)?.groupValues?.get(1) ?: "unknown"
         val versionCode = Regex("versionCode=(\\d+)").find(versionResult.stdout)?.groupValues?.get(1) ?: "0"
 
-        terminal.println("Versiyon: $versionName ($versionCode)")
-        terminal.println("APK sayisi: ${apkPaths.size}")
+        terminal.println(msg.get("adb.version", versionName, versionCode))
+        terminal.println(msg.get("adb.apkCount", apkPaths.size))
 
         if (apkPaths.size == 1) {
             // Single APK — simple pull
@@ -339,21 +340,21 @@ class AdbService(private val terminal: Terminal) {
             val fileName = "${packageName}_v${versionName}.apk"
             val outputPath = outputDir.resolve(fileName)
 
-            terminal.println("Indiriliyor: $remotePath")
+            terminal.println(msg.get("adb.downloading", remotePath))
             val pullCmd = mutableListOf(adb(), "-s", targetDevice, "pull", remotePath, outputPath.absolutePathString())
             val pullResult = ProcessRunner.run(pullCmd, timeoutSeconds = 120)
 
             return if (pullResult.exitCode == 0) {
-                terminal.println(green("APK indirildi: ${outputPath.absolutePathString()}"))
-                terminal.println("Boyut: ${com.androidutil.util.FileSize.format(outputPath.fileSize())}")
+                terminal.println(green(msg.get("adb.downloaded", outputPath.absolutePathString())))
+                terminal.println(msg.get("adb.downloadSize", com.androidutil.util.FileSize.format(outputPath.fileSize())))
                 outputPath
             } else {
-                terminal.println(red("Indirme hatasi: ${pullResult.stderr}"))
+                terminal.println(red(msg.get("adb.downloadError", pullResult.stderr)))
                 null
             }
         } else {
             // Split APKs — pull all parts
-            terminal.println(yellow("Split APK tespit edildi (${apkPaths.size} parca)"))
+            terminal.println(yellow(msg.get("adb.splitApk", apkPaths.size)))
             val apkDir = outputDir.resolve("${packageName}_v${versionName}_split")
             apkDir.createDirectories()
 
@@ -366,16 +367,16 @@ class AdbService(private val terminal: Terminal) {
                 val pullCmd = mutableListOf(adb(), "-s", targetDevice, "pull", remotePath, partPath.absolutePathString())
                 val pullResult = ProcessRunner.run(pullCmd, timeoutSeconds = 120)
                 if (pullResult.exitCode != 0) {
-                    terminal.println(red("    Hata: ${pullResult.stderr}"))
+                    terminal.println(red("    ${msg.get("common.error", pullResult.stderr)}"))
                     allSuccess = false
                 }
             }
 
             return if (allSuccess) {
-                terminal.println(green("Tum APK'lar indirildi: ${apkDir.absolutePathString()}"))
+                terminal.println(green(msg.get("adb.allDownloaded", apkDir.absolutePathString())))
                 apkDir
             } else {
-                terminal.println(yellow("Bazi parcalar indirilemedi."))
+                terminal.println(yellow(msg["adb.somePartsFailed"]))
                 apkDir
             }
         }
@@ -409,7 +410,7 @@ class AdbService(private val terminal: Terminal) {
         turnScreenOff: Boolean = false,
         noVideo: Boolean = false
     ) {
-        val scrcpyPath = com.androidutil.core.scrcpy.ScrcpyManager(terminal).ensureScrcpy()
+        val scrcpyPath = com.androidutil.core.scrcpy.ScrcpyManager(terminal, msg).ensureScrcpy()
         val targetDevice = device ?: selectDevice() ?: return
 
         val cmd = mutableListOf(scrcpyPath.absolutePathString(), "-s", targetDevice)
@@ -423,8 +424,8 @@ class AdbService(private val terminal: Terminal) {
         if (turnScreenOff) cmd.add("--turn-screen-off")
         if (noVideo) cmd.add("--no-video")
 
-        terminal.println("scrcpy baslatiliyor...")
-        terminal.println(gray("Kapatmak icin scrcpy penceresini kapat veya Ctrl+C"))
+        terminal.println(msg["adb.scrcpyStarting"])
+        terminal.println(gray(msg["adb.scrcpyStop"]))
         terminal.println()
 
         val pb = ProcessBuilder(cmd)

@@ -22,7 +22,7 @@ class SizeDiffCommand : CliktCommand(name = "sizediff") {
 
     override fun run() {
         val result = SizeDiff().compare(oldFile, newFile)
-        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal)
+        val renderer = if (config.json) JsonRenderer(config.terminal) else TerminalRenderer(config.terminal, config.messages)
         renderer.renderSizeDiff(result)
     }
 }

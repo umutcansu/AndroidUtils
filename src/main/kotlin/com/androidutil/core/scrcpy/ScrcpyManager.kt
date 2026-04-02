@@ -1,5 +1,6 @@
 package com.androidutil.core.scrcpy
 
+import com.androidutil.i18n.Messages
 import com.androidutil.util.ProcessRunner
 import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.terminal.Terminal
@@ -15,7 +16,7 @@ import kotlin.io.path.*
  * Manages scrcpy binary: locates system install, downloads from GitHub if needed,
  * caches in ~/.androidutil/scrcpy/.
  */
-class ScrcpyManager(private val terminal: Terminal) {
+class ScrcpyManager(private val terminal: Terminal, private val msg: Messages) {
 
     companion object {
         private const val GITHUB_API_LATEST = "https://api.github.com/repos/Genymobile/scrcpy/releases/latest"
@@ -43,7 +44,7 @@ class ScrcpyManager(private val terminal: Terminal) {
     fun ensureScrcpy(): Path {
         findScrcpy()?.let { return it }
 
-        terminal.println(yellow("scrcpy bulunamadi. Otomatik indiriliyor..."))
+        terminal.println(yellow(msg["scrcpy.notFound"]))
         return downloadScrcpy()
     }
 
@@ -52,15 +53,15 @@ class ScrcpyManager(private val terminal: Terminal) {
      */
     fun downloadScrcpy(): Path {
         val platform = detectPlatform()
-        terminal.println("Platform: $platform")
+        terminal.println(msg.get("scrcpy.platform", platform))
 
         // Get latest release info from GitHub API
         val releaseInfo = fetchLatestRelease()
         val version = releaseInfo.version
         val assetUrl = releaseInfo.assets[platform]
-            ?: throw IllegalStateException("Bu platform icin scrcpy bulunamadi: $platform")
+            ?: throw IllegalStateException(msg.get("scrcpy.platformNotSupported", platform))
 
-        terminal.println("scrcpy $version indiriliyor...")
+        terminal.println(msg.get("scrcpy.downloading", version))
 
         // Prepare directories
         val downloadDir = CACHE_DIR.resolve("download")
@@ -76,14 +77,14 @@ class ScrcpyManager(private val terminal: Terminal) {
         )
 
         if (curlResult.exitCode != 0 || !downloadPath.exists()) {
-            throw IllegalStateException("Indirme basarisiz: ${curlResult.stderr}")
+            throw IllegalStateException(msg.get("scrcpy.downloadFailed", curlResult.stderr))
         }
 
         val size = downloadPath.fileSize()
-        terminal.println(green("Indirildi: ${size / 1024 / 1024} MB"))
+        terminal.println(green(msg.get("scrcpy.downloaded", size / 1024 / 1024)))
 
         // Extract
-        terminal.println("Arsiv aciliyor...")
+        terminal.println(msg["scrcpy.extracting"])
         val extractDir = CACHE_DIR.resolve(version)
         extractDir.createDirectories()
 
@@ -98,7 +99,7 @@ class ScrcpyManager(private val terminal: Terminal) {
         val binaryName = if (isWindows) "scrcpy.exe" else "scrcpy"
 
         val scrcpyBinary = findBinaryRecursive(extractDir, binaryName)
-            ?: throw IllegalStateException("scrcpy binary arsivde bulunamadi")
+            ?: throw IllegalStateException(msg["scrcpy.binaryNotFound"])
 
         // Make executable on Unix
         if (!isWindows) {
@@ -111,7 +112,7 @@ class ScrcpyManager(private val terminal: Terminal) {
         // Cleanup download
         downloadPath.deleteIfExists()
 
-        terminal.println(green("scrcpy $version hazir!"))
+        terminal.println(green(msg.get("scrcpy.ready", version)))
         return scrcpyBinary
     }
 
@@ -160,7 +161,7 @@ class ScrcpyManager(private val terminal: Terminal) {
                 if (osArch.contains("64")) "win64"
                 else "win32"
             }
-            else -> throw IllegalStateException("Desteklenmeyen platform: $osName $osArch")
+            else -> throw IllegalStateException(msg.get("scrcpy.unsupportedPlatform", "$osName $osArch"))
         }
     }
 
@@ -177,7 +178,7 @@ class ScrcpyManager(private val terminal: Terminal) {
         )
 
         if (result.exitCode != 0 || result.stdout.isBlank()) {
-            throw IllegalStateException("GitHub API'ye erisilemedi: ${result.stderr}")
+            throw IllegalStateException(msg.get("scrcpy.apiFailed", result.stderr))
         }
 
         val json = result.stdout
@@ -185,7 +186,7 @@ class ScrcpyManager(private val terminal: Terminal) {
         // Parse tag_name
         val versionRegex = """"tag_name"\s*:\s*"([^"]+)"""".toRegex()
         val version = versionRegex.find(json)?.groupValues?.get(1)
-            ?: throw IllegalStateException("Release versiyonu bulunamadi")
+            ?: throw IllegalStateException(msg["scrcpy.versionNotFound"])
 
         // Parse asset URLs
         val assetRegex = """"browser_download_url"\s*:\s*"([^"]+scrcpy-[^"]+)"""".toRegex()
@@ -203,7 +204,7 @@ class ScrcpyManager(private val terminal: Terminal) {
         }
 
         if (assets.isEmpty()) {
-            throw IllegalStateException("Indirilebilir asset bulunamadi")
+            throw IllegalStateException(msg["scrcpy.noAssets"])
         }
 
         return ReleaseInfo(version, assets)
@@ -215,7 +216,7 @@ class ScrcpyManager(private val terminal: Terminal) {
             timeoutSeconds = 60
         )
         if (result.exitCode != 0) {
-            throw IllegalStateException("tar extract basarisiz: ${result.stderr}")
+            throw IllegalStateException(msg.get("scrcpy.extractFailed", result.stderr))
         }
     }
 

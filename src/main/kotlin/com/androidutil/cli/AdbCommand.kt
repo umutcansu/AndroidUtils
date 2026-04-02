@@ -1,6 +1,7 @@
 package com.androidutil.cli
 
 import com.androidutil.core.adb.AdbService
+import com.androidutil.i18n.Messages
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.requireObject
@@ -26,7 +27,7 @@ class AdbInstallCommand : CliktCommand(name = "install") {
     private val config by requireObject<AppConfig>()
 
     override fun run() {
-        AdbService(config.terminal).installApk(file, device)
+        AdbService(config.terminal, config.messages).installApk(file, device)
     }
 }
 
@@ -40,7 +41,7 @@ class AdbDeeplinkCommand : CliktCommand(name = "deeplink") {
     private val config by requireObject<AppConfig>()
 
     override fun run() {
-        AdbService(config.terminal).testDeeplink(url, device)
+        AdbService(config.terminal, config.messages).testDeeplink(url, device)
     }
 }
 
@@ -55,7 +56,7 @@ class AdbScreenshotCommand : CliktCommand(name = "screenshot") {
     private val config by requireObject<AppConfig>()
 
     override fun run() {
-        AdbService(config.terminal).screenshot(output, device)
+        AdbService(config.terminal, config.messages).screenshot(output, device)
     }
 }
 
@@ -71,14 +72,14 @@ class AdbClearCommand : CliktCommand(name = "clear") {
 
     override fun run() {
         if (!force) {
-            print("$packageName uygulama verisi silinecek. Emin misiniz? (e/H): ")
+            print(config.messages.get("adb.cmd.clearConfirm", packageName) + " ")
             val answer = readlnOrNull()?.trim()?.lowercase()
-            if (answer != "e" && answer != "evet") {
-                config.terminal.println("Iptal edildi.")
+            if (answer != "e" && answer != "evet" && answer != "y" && answer != "yes") {
+                config.terminal.println(config.messages["common.cancelled"])
                 return
             }
         }
-        AdbService(config.terminal).clearAppData(packageName, device)
+        AdbService(config.terminal, config.messages).clearAppData(packageName, device)
     }
 }
 
@@ -98,7 +99,7 @@ class AdbMirrorCommand : CliktCommand(name = "mirror") {
     private val config by requireObject<AppConfig>()
 
     override fun run() {
-        AdbService(config.terminal).startScrcpy(
+        AdbService(config.terminal, config.messages).startScrcpy(
             device = device,
             record = record,
             maxSize = maxSize,
@@ -129,7 +130,7 @@ class MirrorCommand : CliktCommand(name = "mirror") {
     private val config by requireObject<AppConfig>()
 
     override fun run() {
-        AdbService(config.terminal).startScrcpy(
+        AdbService(config.terminal, config.messages).startScrcpy(
             device = device,
             record = record,
             maxSize = maxSize,
@@ -155,13 +156,13 @@ class AdbUninstallCommand : CliktCommand(name = "uninstall") {
 
     override fun run() {
         if (!force) {
-            print("$packageName kaldirilacak. Emin misiniz? (e/H): ")
+            print(config.messages.get("adb.cmd.uninstallConfirm", packageName) + " ")
             val answer = readlnOrNull()?.trim()?.lowercase()
-            if (answer != "e" && answer != "evet") {
-                config.terminal.println("Iptal edildi.")
+            if (answer != "e" && answer != "evet" && answer != "y" && answer != "yes") {
+                config.terminal.println(config.messages["common.cancelled"])
                 return
             }
         }
-        AdbService(config.terminal).uninstall(packageName, device)
+        AdbService(config.terminal, config.messages).uninstall(packageName, device)
     }
 }
