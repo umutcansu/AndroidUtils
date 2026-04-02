@@ -33,9 +33,26 @@ A command-line utility for Android developers to analyze, convert, sign APK/AAB 
 
 ## Installation
 
+### Download Pre-built JAR
+
+Download the latest release from [GitHub Releases](https://github.com/umutcansu/AndroidUtils/releases):
+
 ```bash
-git clone https://192.168.1.80:8930/umutcansugroup/androidutils.git
-cd androidutils
+# Download (replace version as needed)
+curl -LO https://github.com/umutcansu/AndroidUtils/releases/download/v1.0.0/androidutil-1.0.0.jar
+
+# Run
+java -jar androidutil-1.0.0.jar analyze app.apk
+
+# Optional: create an alias
+alias androidutil='java -jar /path/to/androidutil-1.0.0.jar'
+```
+
+### Build from Source
+
+```bash
+git clone https://github.com/umutcansu/AndroidUtils.git
+cd AndroidUtils
 ./gradlew shadowJar
 
 # The JAR is at build/libs/androidutil-1.0.0.jar
